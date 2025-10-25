@@ -450,6 +450,19 @@ contract TokenVotingContract is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @dev Get all candidates for an election
+     * @param _electionId Election ID
+     */
+    function getCandidateList(uint256 _electionId)
+        external
+        view
+        electionExists(_electionId)
+        returns (address[] memory)
+    {
+        return candidateList[_electionId];
+    }
+    
+    /**
      * @dev Get election results (sorted by vote count)
      * @param _electionId Election ID
      */

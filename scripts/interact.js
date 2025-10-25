@@ -1,43 +1,43 @@
 const { ethers } = require("hardhat");
 
 /**
- * 投票DApp交互示例脚本
- * 演示如何使用投票智能合约的完整流程
+ * Voting DApp Interaction Example Script
+ * Demonstrates the complete workflow of using the voting smart contract
  */
 async function main() {
-  console.log("=== 投票DApp交互示例 ===\n");
+  console.log("=== Voting DApp Interaction Example ===\n");
 
-  // 获取账户
+  // Get accounts
   const [owner, voter1, voter2, voter3, candidate1, candidate2] = await ethers.getSigners();
   
-  console.log("账户信息:");
-  console.log("合约所有者:", owner.address);
-  console.log("投票者1:", voter1.address);
-  console.log("投票者2:", voter2.address);
-  console.log("投票者3:", voter3.address);
-  console.log("候选人1:", candidate1.address);
-  console.log("候选人2:", candidate2.address);
+  console.log("Account Information:");
+  console.log("Contract Owner:", owner.address);
+  console.log("Voter 1:", voter1.address);
+  console.log("Voter 2:", voter2.address);
+  console.log("Voter 3:", voter3.address);
+  console.log("Candidate 1:", candidate1.address);
+  console.log("Candidate 2:", candidate2.address);
   console.log();
 
-  // 部署合约
-  console.log("1. 部署投票合约...");
+  // Deploy contract
+  console.log("1. Deploying voting contract...");
   const VotingContract = await ethers.getContractFactory("VotingContract");
   const votingContract = await VotingContract.deploy();
-  await votingContract.deployed();
-  console.log("合约地址:", votingContract.address);
+  await votingContract.waitForDeployment();
+  console.log("Contract Address:", await votingContract.getAddress());
   console.log();
 
-  // 创建选举
-  console.log("2. 创建选举...");
+  // Create election
+  console.log("2. Creating election...");
   const currentTime = Math.floor(Date.now() / 1000);
-  const registrationStart = currentTime + 60;    // 1分钟后开始注册
-  const registrationEnd = currentTime + 300;     // 5分钟后结束注册
-  const votingStart = currentTime + 360;         // 6分钟后开始投票
-  const votingEnd = currentTime + 600;           // 10分钟后结束投票
+  const registrationStart = currentTime + 60;    // Registration starts in 1 minute
+  const registrationEnd = currentTime + 300;     // Registration ends in 5 minutes
+  const votingStart = currentTime + 360;         // Voting starts in 6 minutes
+  const votingEnd = currentTime + 600;           // Voting ends in 10 minutes
 
   const createTx = await votingContract.createElection(
-    "学生会主席选举",
-    "2024年学生会主席选举，请积极参与投票",
+    "Student Union President Election",
+    "2024 Student Union President Election, please participate actively in voting",
     registrationStart,
     registrationEnd,
     votingStart,
@@ -45,154 +45,162 @@ async function main() {
   );
   
   const createReceipt = await createTx.wait();
-  const createEvent = createReceipt.events.find(e => e.event === "ElectionCreated");
-  const electionId = createEvent.args.electionId;
+  const createEvent = createReceipt.logs.find(log => {
+    try {
+      const parsed = votingContract.interface.parseLog(log);
+      return parsed && parsed.name === "ElectionCreated";
+    } catch (e) {
+      return false;
+    }
+  });
+  const parsedEvent = votingContract.interface.parseLog(createEvent);
+  const electionId = parsedEvent.args.electionId;
   
-  console.log("选举ID:", electionId.toString());
-  console.log("选举标题: 学生会主席选举");
-  console.log("注册期:", new Date(registrationStart * 1000).toLocaleString(), "到", new Date(registrationEnd * 1000).toLocaleString());
-  console.log("投票期:", new Date(votingStart * 1000).toLocaleString(), "到", new Date(votingEnd * 1000).toLocaleString());
+  console.log("Election ID:", electionId.toString());
+  console.log("Election Title: Student Union President Election");
+  console.log("Registration Period:", new Date(registrationStart * 1000).toLocaleString(), "to", new Date(registrationEnd * 1000).toLocaleString());
+  console.log("Voting Period:", new Date(votingStart * 1000).toLocaleString(), "to", new Date(votingEnd * 1000).toLocaleString());
   console.log();
 
-  // 等待注册期开始
-  console.log("3. 等待注册期开始...");
+  // Wait for registration period to start
+  console.log("3. Waiting for registration period to start...");
   await ethers.provider.send("evm_increaseTime", [60]);
   await ethers.provider.send("evm_mine", []);
-  console.log("注册期已开始");
+  console.log("Registration period has started");
   console.log();
 
-  // 注册候选人
-  console.log("4. 候选人注册...");
+  // Register candidates
+  console.log("4. Candidate registration...");
   
   const register1Tx = await votingContract.connect(candidate1).registerCandidate(
     electionId,
-    "张三",
-    "计算机科学专业，有丰富的学生工作经验，致力于改善校园生活"
+    "John Zhang",
+    "Computer Science major with extensive student leadership experience, committed to improving campus life"
   );
   await register1Tx.wait();
-  console.log("候选人1注册成功: 张三");
+  console.log("Candidate 1 registered successfully: John Zhang");
 
   const register2Tx = await votingContract.connect(candidate2).registerCandidate(
     electionId,
-    "李四",
-    "软件工程专业，积极参与社团活动，希望为同学们服务"
+    "Li Si",
+    "Software Engineering major, actively involved in club activities, hopes to serve fellow students"
   );
   await register2Tx.wait();
-  console.log("候选人2注册成功: 李四");
+  console.log("Candidate 2 registered successfully: Li Si");
   console.log();
 
-  // 查询候选人列表
-  console.log("5. 查询候选人列表...");
+  // Query candidate list
+  console.log("5. Querying candidate list...");
   const candidateList = await votingContract.getCandidateList(electionId);
-  console.log("候选人数量:", candidateList.length);
+  console.log("Number of candidates:", candidateList.length);
   
   for (let i = 0; i < candidateList.length; i++) {
     const candidate = await votingContract.getCandidate(electionId, candidateList[i]);
-    console.log(`候选人${i + 1}: ${candidate.name} (${candidate.candidateAddress})`);
-    console.log(`  描述: ${candidate.description}`);
-    console.log(`  当前得票: ${candidate.voteCount}`);
+    console.log(`Candidate ${i + 1}: ${candidate.name} (${candidate.candidateAddress})`);
+    console.log(`  Description: ${candidate.description}`);
+    console.log(`  Current votes: ${candidate.voteCount}`);
   }
   console.log();
 
-  // 等待投票期开始
-  console.log("6. 等待投票期开始...");
+  // Wait for voting period to start
+  console.log("6. Waiting for voting period to start...");
   await ethers.provider.send("evm_increaseTime", [300]);
   await ethers.provider.send("evm_mine", []);
-  console.log("投票期已开始");
+  console.log("Voting period has started");
   console.log();
 
-  // 投票
-  console.log("7. 开始投票...");
+  // Voting
+  console.log("7. Starting voting...");
   
-  // 投票者1投票给候选人1
+  // Voter 1 votes for candidate 1
   const vote1Tx = await votingContract.connect(voter1).vote(electionId, candidate1.address);
   await vote1Tx.wait();
-  console.log("投票者1投票给张三");
+  console.log("Voter 1 voted for John Zhang");
 
-  // 投票者2投票给候选人1
+  // Voter 2 votes for candidate 1
   const vote2Tx = await votingContract.connect(voter2).vote(electionId, candidate1.address);
   await vote2Tx.wait();
-  console.log("投票者2投票给张三");
+  console.log("Voter 2 voted for John Zhang");
 
-  // 投票者3投票给候选人2
+  // Voter 3 votes for candidate 2
   const vote3Tx = await votingContract.connect(voter3).vote(electionId, candidate2.address);
   await vote3Tx.wait();
-  console.log("投票者3投票给李四");
+  console.log("Voter 3 voted for Li Si");
   console.log();
 
-  // 查询投票状态
-  console.log("8. 查询投票状态...");
+  // Query voting status
+  console.log("8. Querying voting status...");
   const hasVoted1 = await votingContract.hasUserVoted(electionId, voter1.address);
   const hasVoted2 = await votingContract.hasUserVoted(electionId, voter2.address);
   const hasVoted3 = await votingContract.hasUserVoted(electionId, voter3.address);
   
-  console.log("投票者1是否已投票:", hasVoted1);
-  console.log("投票者2是否已投票:", hasVoted2);
-  console.log("投票者3是否已投票:", hasVoted3);
+  console.log("Has Voter 1 voted:", hasVoted1);
+  console.log("Has Voter 2 voted:", hasVoted2);
+  console.log("Has Voter 3 voted:", hasVoted3);
   console.log();
 
-  // 查询实时结果
-  console.log("9. 查询实时投票结果...");
+  // Query real-time results
+  console.log("9. Querying real-time voting results...");
   const results = await votingContract.getElectionResults(electionId);
   const totalVotes = await votingContract.getTotalVotes(electionId);
   
-  console.log("总投票数:", totalVotes.toString());
-  console.log("投票结果:");
+  console.log("Total votes:", totalVotes.toString());
+  console.log("Voting results:");
   
   for (let i = 0; i < results.candidateAddresses.length; i++) {
-    console.log(`第${i + 1}名: ${results.names[i]} - ${results.voteCounts[i]}票`);
+    console.log(`Rank ${i + 1}: ${results.names[i]} - ${results.voteCounts[i]} votes`);
   }
   console.log();
 
-  // 查询选举状态
-  console.log("10. 查询选举状态...");
+  // Query election status
+  console.log("10. Querying election status...");
   const status = await votingContract.getElectionStatus(electionId);
-  const statusNames = ["未开始", "注册期", "投票期", "已结束"];
-  console.log("当前状态:", statusNames[status]);
+  const statusNames = ["Not Started", "Registration", "Voting", "Ended"];
+  console.log("Current status:", statusNames[status]);
   
   const timeInfo = await votingContract.getTimeRemaining(electionId);
-  console.log("当前阶段:", timeInfo.currentPhase);
-  console.log("注册剩余时间:", timeInfo.registrationTimeRemaining.toString(), "秒");
-  console.log("投票剩余时间:", timeInfo.votingTimeRemaining.toString(), "秒");
+  console.log("Current phase:", timeInfo.currentPhase);
+  console.log("Registration time remaining:", timeInfo.registrationTimeRemaining.toString(), "seconds");
+  console.log("Voting time remaining:", timeInfo.votingTimeRemaining.toString(), "seconds");
   console.log();
 
-  // 等待投票期结束
-  console.log("11. 等待投票期结束...");
+  // Wait for voting period to end
+  console.log("11. Waiting for voting period to end...");
   await ethers.provider.send("evm_increaseTime", [300]);
   await ethers.provider.send("evm_mine", []);
-  console.log("投票期已结束");
+  console.log("Voting period has ended");
   console.log();
 
-  // 查询最终结果
-  console.log("12. 最终选举结果...");
+  // Query final results
+  console.log("12. Final election results...");
   const finalStatus = await votingContract.getElectionStatus(electionId);
-  console.log("选举状态:", statusNames[finalStatus]);
+  console.log("Election status:", statusNames[finalStatus]);
   
   const finalResults = await votingContract.getElectionResults(electionId);
   const finalTotalVotes = await votingContract.getTotalVotes(electionId);
   
-  console.log("最终总投票数:", finalTotalVotes.toString());
-  console.log("最终结果:");
+  console.log("Final total votes:", finalTotalVotes.toString());
+  console.log("Final results:");
   
   for (let i = 0; i < finalResults.candidateAddresses.length; i++) {
-    const percentage = finalTotalVotes.gt(0) ? 
-      (finalResults.voteCounts[i] * 100 / finalTotalVotes).toFixed(2) : 0;
-    console.log(`第${i + 1}名: ${finalResults.names[i]} - ${finalResults.voteCounts[i]}票 (${percentage}%)`);
+    const percentage = finalTotalVotes > 0 ? 
+      (Number(finalResults.voteCounts[i]) * 100 / Number(finalTotalVotes)).toFixed(2) : 0;
+    console.log(`Rank ${i + 1}: ${finalResults.names[i]} - ${finalResults.voteCounts[i]} votes (${percentage}%)`);
   }
   
-  // 确定获胜者
+  // Determine winner
   if (finalResults.voteCounts.length > 0) {
     const winner = finalResults.voteCounts[0] > finalResults.voteCounts[1] ? 
       finalResults.names[0] : finalResults.names[1];
-    console.log(`\n🏆 获胜者: ${winner}`);
+    console.log(`\n🏆 Winner: ${winner}`);
   }
   
-  console.log("\n=== 交互示例完成 ===");
+  console.log("\n=== Interaction Example Completed ===");
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("交互示例失败:", error);
+    console.error("Interaction example failed:", error);
     process.exit(1);
   });

@@ -6,16 +6,16 @@ async function main() {
   // 获取部署者账户
   const [deployer] = await ethers.getSigners();
   console.log("部署账户:", deployer.address);
-  console.log("账户余额:", ethers.utils.formatEther(await deployer.getBalance()), "ETH");
+  console.log("账户余额:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)), "ETH");
 
   // 部署合约
   const VotingContract = await ethers.getContractFactory("VotingContract");
   const votingContract = await VotingContract.deploy();
   
-  await votingContract.deployed();
+  await votingContract.waitForDeployment();
 
-  console.log("投票合约已部署到:", votingContract.address);
-  console.log("部署交易哈希:", votingContract.deployTransaction.hash);
+  console.log("投票合约已部署到:", await votingContract.getAddress());
+  console.log("部署交易哈希:", votingContract.deploymentTransaction().hash);
 
   // 验证部署
   console.log("\n验证部署...");
@@ -24,11 +24,11 @@ async function main() {
 
   // 保存部署信息
   const deploymentInfo = {
-    contractAddress: votingContract.address,
+    contractAddress: await votingContract.getAddress(),
     deployer: deployer.address,
     deploymentTime: new Date().toISOString(),
     network: await ethers.provider.getNetwork(),
-    transactionHash: votingContract.deployTransaction.hash
+    transactionHash: votingContract.deploymentTransaction().hash
   };
 
   console.log("\n部署信息:");
